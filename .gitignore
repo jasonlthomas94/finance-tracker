@@ -1,0 +1,8 @@
+venv/
+.env
+*.db
+output/
+__pycache__/
+.DS_Store
+household.toml
+CLAUDE.local.md

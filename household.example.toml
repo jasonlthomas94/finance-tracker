@@ -1,0 +1,123 @@
+# Example household settings with made-up values. They match the synthetic
+# data from demo/make_demo_data.py. Copy to household.toml (gitignored) and
+# replace with your own. Patterns are SQL ILIKE patterns on the raw bank
+# transaction name (% = anything).
+
+[general]
+history_start = 2026-01-01      # earliest synced transaction
+one_off_threshold = 1500        # items this size or larger are reported separately
+reviewed_through = 2026-07-08   # settings checked against the data through this date
+
+[cards]
+# Payments to credit cards that are themselves connected: the purchases are
+# already counted, so the payment would double count.
+tracked_payment_pattern = "%EXAMPLE BANK CARD PMT%"
+movement_label = "credit card payments"
+
+[savings]
+# Money to or from savings is never spending or income, whatever Plaid tagged it.
+label = "high-yield savings and the 529"
+patterns = ["%HIGH YIELD SAVINGS%"]
+contribution_patterns = ["%529 PLAN%"]
+movement_label = "transfers to savings"
+
+[transfers]
+# Transfers between your own checking accounts (ignored in cash flow).
+own_patterns = ["%ONLINE TRANSFER CHECKING%"]
+
+[pay]
+payroll_pattern = "%PAYROLL%"
+
+[[pay.current]]
+label = "Alex's pay (Acme Corp)"
+per_pay_date = 3200.00
+pay_dates_per_month = 2
+pattern = "%ACME CORP PAYROLL%"
+
+[[pay.current]]
+label = "Sam's pay (Globex)"
+per_pay_date = 2100.00
+pay_dates_per_month = 2
+pattern = "%GLOBEX PAYROLL%"
+
+# Fixed monthly bills: always regular spend whatever Plaid tagged them, one stable label.
+[[fixed_bills]]
+label = "MORTGAGE"
+pattern = "%HOME LOAN SERVICING%"
+
+[[fixed_bills]]
+label = "CAR_PAYMENT"
+pattern = "%CITY CU AUTO LOAN%"
+
+[[expense_classes]]
+name = "Fixed, necessary"
+items = [
+    ["Mortgage", "%HOME LOAN SERVICING%"],
+    ["Car payment", "%CITY CU AUTO LOAN%"],
+    ["Daycare (Little Sprouts)", "%LITTLE SPROUTS%"],
+    ["Electric", "%CITY ELECTRIC%"],
+    ["Internet", "%FIBERNET%"],
+    ["Term life insurance", "%TERM LIFE%"],
+]
+
+[[expense_classes]]
+name = "Fixed, discretionary"
+items = [
+    ["Gym", "%IRON GYM%"],
+    ["Streaming", "%STREAMFLIX%"],
+    ["Music", "%TUNEBOX%"],
+]
+
+# Bills paid once or twice a year: kept out of regular spend, used for the set-aside.
+[[annual_bills]]
+label = "Property taxes"
+pattern = "%COUNTY TAX%"
+min_amount = 0
+months = [3, 9]
+
+[[annual_bills]]
+label = "Home and auto insurance (full year)"
+pattern = "%SAFEGUARD INS%"
+min_amount = 1000
+months = [5]
+
+[[annual_bills]]
+label = "Car registration"
+pattern = "%STATE DMV%"
+min_amount = 0
+months = [6]
+
+# Paychecks that were one-time money (payouts, bonuses), not normal pay.
+[[one_time_income]]
+label = "Alex's annual bonus"
+pattern = "%ACME CORP PAYROLL%"
+first = 2026-03-20
+last = 2026-03-20
+
+# Large ins and outs that belong together, shown as one line with the net.
+[[linked_events]]
+short = "Beach trip"
+label = "Beach trip with friends, paid on a card and paid back over Venmo"
+rules = [
+    ["%SEASIDE RESORT%", 2026-04-01, 2026-04-30, "out"],
+    ["%Venmo%", 2026-04-01, 2026-04-30, "in"],
+]
+
+[categories]
+# Merchant rules, checked before Plaid's categories. First match wins.
+merchant_rules = [
+    ["Mortgage", "%HOME LOAN SERVICING%"],
+    ["Car", "%CITY CU AUTO LOAN%"],
+    ["Kids & daycare", "%LITTLE SPROUTS%"],
+    ["Gas & convenience", "%COSTCO GAS%"],
+    ["Costco", "%COSTCO%"],
+    ["Amazon", "%AMAZON%"],
+    ["Target", "%TARGET%"],
+    ["Travel", "%SEASIDE RESORT%"],
+]
+
+[report]
+# Bills the reader already knows about; the "where it went" sentence skips them.
+basics = ["Mortgage", "Kids & daycare", "Car", "Utilities & internet", "Insurance"]
+basics_phrase = "the mortgage, daycare, car and utilities"
+pay_phrase = "At current pay"
