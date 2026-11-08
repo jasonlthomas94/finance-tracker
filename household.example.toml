@@ -121,3 +121,11 @@ merchant_rules = [
 basics = ["Mortgage", "Kids & daycare", "Car", "Utilities & internet", "Insurance"]
 basics_phrase = "the mortgage, daycare, car and utilities"
 pay_phrase = "At current pay"
+
+# Weekly card status emails (scheduler.py): Mondays, plus a wrap-up the day
+# after the cycle closes. Recipients: REPORT_EMAIL_TO / REPORT_EMAIL_CC in .env.
+[[card_reports]]
+name = "Rewards card"
+account_mask = "3333"
+cycle_start_day = 15
+closed_email_day = 16

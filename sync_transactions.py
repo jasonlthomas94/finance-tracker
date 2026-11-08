@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import plaid
 from plaid.api import plaid_api
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
+from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.exceptions import ApiException
 import psycopg2
 
@@ -96,6 +97,26 @@ def sync_item(cur, db_item_id, access_token, institution_name, start_cursor):
     removed_ids = [r['transaction_id'] for r in removed]
     if removed_ids:
         cur.execute("DELETE FROM transactions WHERE plaid_transaction_id = ANY(%s)", (removed_ids,))
+
+    # Record each account's balance as of this sync (history kept, one row per
+    # sync). /accounts/get is free and returns Plaid's cached balances (about
+    # daily). Never use the billed /accounts/balance/get. The sync response's own
+    # account list only covers accounts with new transactions, so it isn't used.
+    try:
+        accounts = client.accounts_get(AccountsGetRequest(access_token=access_token))['accounts']
+    except ApiException as e:
+        print(f"  (balances not updated: {e.status})")
+        accounts = []
+    for acct in accounts:
+        db_account_id = account_id_map.get(acct['account_id'])
+        bal = acct.get('balances')
+        if not db_account_id or not bal:
+            continue
+        cur.execute("""
+            INSERT INTO account_balances (account_id, current, available, credit_limit, plaid_updated_at)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (db_account_id, bal.get('current'), bal.get('available'), bal.get('limit'),
+              bal.get('last_updated_datetime')))
 
     # Save the cursor only after every page has been applied
     cur.execute("UPDATE items SET sync_cursor = %s WHERE id = %s", (new_cursor, db_item_id))

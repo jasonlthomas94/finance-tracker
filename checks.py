@@ -100,6 +100,26 @@ def data_checks(c, cur, today):
         n = cur.fetchone()[0]
         c.ok(n == 0, f"{tag}: {n} transfer row(s) counted as regular spend")
 
+    # Card reports: every row in the cycle is a purchase, a return or a payment,
+    # and the cycle total is purchases minus returns.
+    from card_report import cards, cycle_bounds as cb, cycle_activity
+    for card in cards():
+        cur.execute("SELECT id FROM accounts WHERE mask = %s AND account_type = 'credit'", (card['account_mask'],))
+        row = cur.fetchone()
+        c.ok(row is not None, f"card account for {card['name']} exists")
+        if not row:
+            continue
+        start, end = cb(today, card['cycle_start_day'])
+        act = cycle_activity(cur, row[0], start, end)
+        cur.execute("SELECT count(*), COALESCE(sum(amount), 0) FROM transactions WHERE account_id = %s "
+                    "AND date >= %s AND date < %s", (row[0], start, end))
+        n, total = cur.fetchone()
+        c.ok(len(act['purchases']) + len(act['returns']) + len(act['payments']) == n,
+             f"{card['name']}: every cycle row classified")
+        c.close(act['spent'] - act['returned'] + sum(a for _, _, a, _ in act['payments']), float(total),
+                f"{card['name']}: cycle rows add up")
+        c.ok(all(a < 0 for _, _, a, _ in act['payments']), f"{card['name']}: payments are credits")
+
     # Whole database.
     cur.execute("SELECT count(*) FROM transactions WHERE account_id IS NULL")
     c.ok(cur.fetchone()[0] == 0, "transactions without an account")
@@ -184,6 +204,22 @@ def rule_checks(c):
     c.ok(sch.due_job(dt(2026, 12, 6, 20, 0), st) == 'monthly', "a missed 4th runs when the Mac is back")
     c.ok(sch.in_backoff(dt(2026, 12, 4, 9, 0), {'last_failure': '2026-12-04T07:30:00'}), "waits after a failure")
     c.ok(not sch.in_backoff(dt(2026, 12, 4, 11, 0), {'last_failure': '2026-12-04T07:30:00'}), "retries later")
+    card = {'name': 'Test card', 'closed_email_day': 12}
+    cst = {'card_test_card_weekly_ok': '2026-11-09T07:05:00', 'card_test_card_closed_ok': '2026-10-12T07:05:00'}
+    c.ok(sch.card_due(dt(2026, 11, 10, 9, 0), cst, card) is None, "card: nothing due mid-week")
+    c.ok(sch.card_due(dt(2026, 11, 12, 7, 30), cst, card) == 'closed', "card: closed email on the 12th")
+    c.ok(sch.card_due(dt(2026, 11, 14, 20, 0), cst, card) == 'closed', "card: missed 12th catches up")
+    cst2 = dict(cst, card_test_card_closed_ok='2026-11-12T07:05:00')
+    c.ok(sch.card_due(dt(2026, 11, 16, 7, 30), cst2, card) == 'weekly', "card: Monday weekly email")
+
+    # Card billing cycles: start day inclusive, next start exclusive.
+    from card_report import cycle_bounds, previous_cycle
+    c.ok(cycle_bounds(date(2026, 11, 8), 11) == (date(2026, 10, 11), date(2026, 11, 11)), "cycle before the 11th")
+    c.ok(cycle_bounds(date(2026, 11, 11), 11) == (date(2026, 11, 11), date(2026, 12, 11)), "cycle on the 11th")
+    c.ok(cycle_bounds(date(2026, 12, 31), 11) == (date(2026, 12, 11), date(2027, 1, 11)), "cycle across new year")
+    c.ok(cycle_bounds(date(2027, 1, 5), 11) == (date(2026, 12, 11), date(2027, 1, 11)), "January before the 11th")
+    c.ok(cycle_bounds(date(2027, 2, 28), 31) == (date(2027, 2, 28), date(2027, 3, 31)), "31st clamps in February")
+    c.ok(previous_cycle(date(2026, 11, 11), 11) == (date(2026, 10, 11), date(2026, 11, 11)), "previous cycle")
 
     # Formatting.
     c.ok(dollars(-1234.56) == '−$1,235', "negative dollars")

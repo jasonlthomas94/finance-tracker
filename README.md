@@ -18,6 +18,7 @@ Budgeting apps show dashboards. The person in our house who asks "how are we doi
 - **Checks itself before writing anything**: about 160 to 200 checks (depending on how many months there are) confirm that every breakdown of the same money agrees (categories, fixed vs. variable, accounts, cash flow), that savings and card payments never leak into spending, and that the verdict and schedule logic behave as intended. Any failure stops the report.
 - **Flags what it can't explain**: a "needs attention" list for paychecks that changed, unexplained large items, uncategorized spending, overdue bills or a stale sync, so hand-entered settings don't silently go stale.
 - **Runs on a schedule**: a launchd agent runs it weekly and emails the full report monthly through Mail.app, catching up after the laptop was asleep or off.
+- **Card status emails**: for a credit card only one partner can log in to, a weekly email with the current billing cycle's spending, every purchase and return, and the card balance (from Plaid's free cached balances), plus a wrap-up when the cycle closes.
 
 ## Design notes
 
@@ -51,7 +52,8 @@ For real data: create a database from `schema.sql`, put `PLAID_CLIENT_ID`, `PLAI
 | `generate_charts.py` | Matplotlib charts, embedded in the report |
 | `checks.py` | Reconciliation and rule checks |
 | `attention.py` | "Needs attention" flags |
-| `scheduler.py` | Weekly and monthly runs, email via Mail.app |
+| `card_report.py` | Billing-cycle status email for a card someone else can't log in to |
+| `scheduler.py` | Weekly, monthly and card-cycle runs, email via Mail.app |
 | `household.py`, `household.example.toml` | Personal settings loader and documented example |
 | `demo/make_demo_data.py` | Synthetic demo database |
 | `schema.sql` | Database schema |

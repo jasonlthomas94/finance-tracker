@@ -34,3 +34,15 @@ CREATE TABLE transactions (
     created_at           timestamp DEFAULT now(),
     category_detailed    text                      -- Plaid personal_finance_category.detailed
 );
+
+-- Balance per account at each sync (from the accounts list in the
+-- /transactions/sync response; Plaid's cached balance, not real-time).
+CREATE TABLE account_balances (
+    id               serial PRIMARY KEY,
+    account_id       integer REFERENCES accounts(id),
+    recorded_at      timestamp DEFAULT now(),
+    current          numeric(12,2),            -- for credit cards: amount owed
+    available        numeric(12,2),
+    credit_limit     numeric(12,2),
+    plaid_updated_at timestamptz               -- when Plaid last refreshed it, if reported
+);
